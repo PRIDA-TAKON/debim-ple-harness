@@ -1,5 +1,5 @@
 name: debim-ple-harness
-model_api: gemini/gemini-2.5-flash
+model_api: gemini/gemini-3.8-flash
 install: bash {src}/install.sh
 serve: /opt/harness/venv/bin/python {src}/serve.py
 env:
