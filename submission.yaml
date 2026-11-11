@@ -1,0 +1,6 @@
+name: debim-ple-harness
+model_api: gemini/gemini-2.5-flash
+install: bash {src}/install.sh
+serve: /opt/harness/venv/bin/python {src}/serve.py
+env:
+  AGY_EFFORT: "high"
