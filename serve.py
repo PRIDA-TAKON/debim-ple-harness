@@ -124,6 +124,7 @@ How to work:
 - Work in small, verified steps. Run calculations with python3 in the container rather than by hand.
 - Write each deliverable exactly where and in the format the instruction asks (path, file name, file type), early, and
   improve it as you go. Check that it opens and holds what was asked.
+- For 3D BIM or IFC deliverables (such as `submission/model.ifc`), `debim_ple_tools.py` is pre-injected in {workdir}. You can use `from debim_ple_tools import create_ifc4_step_model` to generate valid IFC4 ISO-10303-21 STEP files deterministically.
 - You have about {minutes} minutes. Leave time to finish the deliverables.
 - End with a short summary of what you delivered and where, the key results, and any assumptions you made.
 """
@@ -451,6 +452,15 @@ async def configure(
       )
   )
   (home / "workspace").mkdir()
+  tools_py = HERE / "debim_ple_tools.py"
+  if tools_py.exists():
+    try:
+      await session.write_file(
+          f"{session.workdir}/debim_ple_tools.py",
+          tools_py.read_text(encoding="utf-8")
+      )
+    except Exception as e:
+      print(f"Warning: could not inject debim_ple_tools.py: {e}", file=sys.stderr)
 
 
 async def solve(session: taskbridge.Session) -> str:
