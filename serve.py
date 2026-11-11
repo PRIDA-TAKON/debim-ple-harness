@@ -124,7 +124,13 @@ How to work:
 - Work in small, verified steps. Run calculations with python3 in the container rather than by hand.
 - Write each deliverable exactly where and in the format the instruction asks (path, file name, file type), early, and
   improve it as you go. Check that it opens and holds what was asked.
-- For 3D BIM or IFC deliverables (such as `submission/model.ifc`), `debim_ple_tools.py` is pre-injected in {workdir}. You can use `from debim_ple_tools import create_ifc4_step_model` to generate valid IFC4 ISO-10303-21 STEP files deterministically.
+- For engineering calculations and 3D BIM/IFC deliverables (such as `submission/model.ifc`), `debim_ple_tools.py` is pre-injected in {workdir}. It provides:
+  * `create_ifc4_step_model`: Generates valid IFC4 ISO-10303-21 STEP files deterministically.
+  * Civil & Site: `calculate_stormwater_retention`, `check_environmental_setbacks`, `calculate_noise_attenuation`
+  * Structural: `calculate_wind_diaphragm_shear`, `calculate_seismic_diaphragm_shear`, `calculate_footing_settlement_clay`
+  * Electrical: `calculate_voltage_drop`, `size_data_center_generator_yard`, `size_mv_substation_transformers`
+  * Mechanical: `calculate_data_hall_cooling_load`, `calculate_pipe_volume_and_flushing`
+  * Data Center: `calculate_pue_wue`, `size_data_hall_whitespace`, `check_tier_redundancy`, `calculate_data_hall_floor_load`
 - You have about {minutes} minutes. Leave time to finish the deliverables.
 - End with a short summary of what you delivered and where, the key results, and any assumptions you made.
 """
