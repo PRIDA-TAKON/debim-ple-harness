@@ -1,0 +1,39 @@
+{
+  "format": 1,
+  "dev_set": "85ad6d96fbf76ee64d9fb6339b3bf342b07128a2ebadc0a10f008c95dac01a48",
+  "created": "2026-11-11T09:11:52Z",
+  "harness": {
+    "name": "debim-ple-harness",
+    "model_api": "google-cloud/gemini-3.8-flash",
+    "tree": "a822d6a2c8e7aeee94997a7ae1fe30f314d34a4c3a32201c8c0fec4bf297b5da",
+    "files": {
+      ".gitignore": "100644 fda3ba9bfb473fac576abce66431240652b74131",
+      "README.md": "100644 80c7f8a3f9b9fb429eccc11b81d714674684302b",
+      "debim_ple_tools.py": "100644 dfe37f19cc5d340b3e937d3e92ef2b4824d86ccd",
+      "install.sh": "100644 7ed92a559a26464af14e8edd11d9bb8489c7d3a1",
+      "requirements.txt": "100644 7bc03d775075fc452cc88d8aa6292087dd8eec65",
+      "serve.py": "100644 a4516a976fcb5ae6cb76e5012faf5b105585af6c",
+      "submission.yaml": "100644 243df9e4d3ca8fbbefad87a1552f3f2ea61e31d7",
+      "task_mcp.py": "100644 4d501dfe0177e4e101f9e376bf4cbba4caa1b7b2",
+      "taskbridge.py": "100644 26cc3d6cf8dbcaed859731ce9a6881f4ca8bfe40"
+    },
+    "commit": "6706642728c895a9069fa8c2c5ee0ab30503a936",
+    "dirty": false
+  },
+  "tasks": {
+    "data-center-site-model": {
+      "run": "debim-ple-harness-20261111-154349",
+      "trial": "data-center-site-model__Cu33pfz",
+      "ended": "ok",
+      "reward": 1.0,
+      "tree": "a822d6a2c8e7aeee94997a7ae1fe30f314d34a4c3a32201c8c0fec4bf297b5da",
+      "dev_set": "85ad6d96fbf76ee64d9fb6339b3bf342b07128a2ebadc0a10f008c95dac01a48",
+      "files": {
+        "app/files/frontier__DCBim__p6_002/submission/model.ifc": "e458b8e5c9036b70ee5bf284ffa17fc7de46fa92"
+      },
+      "final_message": "9dc55434deab662d69c6a662e035ed417114fcbf",
+      "deleted": [],
+      "skipped": []
+    }
+  }
+}
