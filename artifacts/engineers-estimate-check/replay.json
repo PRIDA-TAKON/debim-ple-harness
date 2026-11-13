@@ -1,0 +1,17 @@
+{
+  "task": "engineers-estimate-check",
+  "files": [
+    {
+      "path": "/app/tools/.apps_data/.coordinator/config/config.json",
+      "src": "files/app/tools/.apps_data/.coordinator/config/config.json",
+      "mode": "644"
+    },
+    {
+      "path": "/filesystem/Correspondence/Client/Memo_to_Callaway_2026-10-31.docx",
+      "src": "files/filesystem/Correspondence/Client/Memo_to_Callaway_2026-10-31.docx",
+      "mode": "644"
+    }
+  ],
+  "deleted": [],
+  "final_message": "final_message.md"
+}
