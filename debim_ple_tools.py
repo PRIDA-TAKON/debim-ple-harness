@@ -567,3 +567,152 @@ def calculate_data_hall_floor_load(
         "slab_capacity_kpa": slab_capacity_kpa,
         "is_compliant": total_kpa <= slab_capacity_kpa
     }
+
+# ==============================================================================
+# 5 CORE ENGINEERING VERIFICATION (QA/QC) TOOLS
+# ==============================================================================
+
+def cross_check_counts(
+    plan_counts: Dict[str, int],
+    schedule_counts: Dict[str, int]
+) -> Dict[str, Any]:
+    """
+    Cross-checks physical plan takeoff counts against schedule/estimate tables.
+    Identifies discrepancies, missing items, and surplus entries.
+    """
+    all_keys = sorted(set(list(plan_counts.keys()) + list(schedule_counts.keys())))
+    discrepancies = []
+    matched = []
+    
+    for k in all_keys:
+        p_val = plan_counts.get(k, 0)
+        s_val = schedule_counts.get(k, 0)
+        diff = p_val - s_val
+        entry = {
+            "item": k,
+            "plan_count": p_val,
+            "schedule_count": s_val,
+            "variance": diff,
+            "status": "MATCH" if diff == 0 else ("PLAN_EXCEEDS" if diff > 0 else "SCHEDULE_EXCEEDS")
+        }
+        if diff != 0:
+            discrepancies.append(entry)
+        else:
+            matched.append(entry)
+            
+    return {
+        "total_items_checked": len(all_keys),
+        "discrepancy_count": len(discrepancies),
+        "discrepancies": discrepancies,
+        "matched": matched,
+        "is_consistent": len(discrepancies) == 0
+    }
+
+def verify_unit_consistency(
+    value: float,
+    from_unit: str,
+    to_unit: str
+) -> Dict[str, Any]:
+    """
+    Validates dimensional and unit conversions across Imperial and Metric engineering units.
+    """
+    u_from = from_unit.strip().lower()
+    u_to = to_unit.strip().lower()
+    
+    conversions = {
+        ("in", "ft"): 1.0 / 12.0,
+        ("ft", "in"): 12.0,
+        ("ft", "m"): 0.3048,
+        ("m", "ft"): 1.0 / 0.3048,
+        ("lf", "ft"): 1.0,
+        ("cy", "cf"): 27.0,
+        ("cf", "cy"): 1.0 / 27.0,
+        ("sqft", "sqm"): 0.092903,
+        ("sqm", "sqft"): 1.0 / 0.092903,
+        ("psi", "kpa"): 6.89476,
+        ("kpa", "psi"): 1.0 / 6.89476,
+        ("gpm", "cfs"): 0.002228,
+        ("cfs", "gpm"): 448.831,
+        ("kw", "tr"): 1.0 / 3.51685,
+        ("tr", "kw"): 3.51685,
+        ("kw", "hp"): 1.34102,
+        ("hp", "kw"): 0.7457
+    }
+    
+    if u_from == u_to:
+        factor = 1.0
+    elif (u_from, u_to) in conversions:
+        factor = conversions[(u_from, u_to)]
+    else:
+        return {
+            "error": f"Unsupported conversion from {from_unit} to {to_unit}",
+            "is_valid": False
+        }
+        
+    converted = value * factor
+    return {
+        "input_value": value,
+        "from_unit": from_unit,
+        "to_unit": to_unit,
+        "conversion_factor": factor,
+        "converted_value": round(converted, 4),
+        "is_valid": True
+    }
+
+def audit_estimate_discrepancies(
+    line_items: List[Dict[str, Any]],
+    bond_rate_percent: float = 100.0,
+    bond_round_up_nearest: int = 1000
+) -> Dict[str, Any]:
+    """
+    Deterministic engineering cost estimate audit tool.
+    Computes verified line totals, subtotals by section, and rounded performance bond amounts.
+    
+    Each line item dict:
+    {
+        "id": "2.36",
+        "description": "60-inch Manhole",
+        "quantity": 10.0,
+        "unit": "EA",
+        "unit_price": 7500.0,
+        "section": "Section 2"
+    }
+    """
+    sections = {}
+    verified_items = []
+    grand_subtotal = 0.0
+    
+    for item in line_items:
+        qty = float(item.get("quantity", 0.0))
+        rate = float(item.get("unit_price", 0.0))
+        ext = qty * rate
+        sec = item.get("section", "General")
+        
+        v_item = dict(item)
+        v_item["extended_amount"] = round(ext, 2)
+        verified_items.append(v_item)
+        
+        sections[sec] = sections.get(sec, 0.0) + ext
+        grand_subtotal += ext
+        
+    rounded_sections = {s: round(val, 2) for s, val in sections.items()}
+    grand_subtotal = round(grand_subtotal, 2)
+    
+    # Calculate bond
+    bond_amount_exact = grand_subtotal * (bond_rate_percent / 100.0)
+    if bond_round_up_nearest > 0:
+        bond_rounded = math.ceil(bond_amount_exact / bond_round_up_nearest) * bond_round_up_nearest
+    else:
+        bond_rounded = round(bond_amount_exact, 2)
+        
+    return {
+        "total_line_items": len(verified_items),
+        "verified_items": verified_items,
+        "section_subtotals": rounded_sections,
+        "grand_subtotal": grand_subtotal,
+        "bond_rate_percent": bond_rate_percent,
+        "bond_amount_exact": round(bond_amount_exact, 2),
+        "bond_amount_rounded": bond_rounded,
+        "rounding_rule": f"Round up to next {bond_round_up_nearest}" if bond_round_up_nearest > 0 else "Exact"
+    }
+
