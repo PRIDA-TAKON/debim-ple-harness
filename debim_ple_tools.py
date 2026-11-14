@@ -716,3 +716,459 @@ def audit_estimate_discrepancies(
         "rounding_rule": f"Round up to next {bond_round_up_nearest}" if bond_round_up_nearest > 0 else "Exact"
     }
 
+
+# ==============================================================================
+# PLAN-TO-BIM / DRAWING INGESTION ENGINE & MEP ROUTE SYNTHESIZER
+# Pure Python & NumPy (Zero external heavy dependencies like Pillow or OpenCV)
+# ==============================================================================
+
+import struct
+import zlib
+import numpy as np
+
+def read_png_rgba(file_path: str) -> np.ndarray:
+    """
+    Pure Python PNG parser using standard zlib and numpy.
+    Parses standard 8-bit/color RGBA or RGB PNGs without Pillow or OpenCV.
+    Returns uint8 numpy array of shape (height, width, 4).
+    """
+    with open(file_path, "rb") as f:
+        sig = f.read(8)
+        if sig != b"\x89PNG\r\n\x1a\n":
+            raise ValueError(f"Not a valid PNG file: {file_path}")
+
+        width = 0
+        height = 0
+        bit_depth = 8
+        color_type = 6
+        idat_chunks = []
+
+        while True:
+            header = f.read(8)
+            if len(header) < 8:
+                break
+            length, chunk_type = struct.unpack(">I4s", header)
+            chunk_data = f.read(length)
+            f.read(4)  # CRC
+
+            if chunk_type == b"IHDR":
+                width, height, bit_depth, color_type, comp, filt, inter = struct.unpack(
+                    ">IIBBBBB", chunk_data
+                )
+            elif chunk_type == b"IDAT":
+                idat_chunks.append(chunk_data)
+            elif chunk_type == b"IEND":
+                break
+
+    if not idat_chunks:
+        raise ValueError("No IDAT chunks found in PNG")
+
+    raw_decompressed = zlib.decompress(b"".join(idat_chunks))
+    bpp = 4 if color_type == 6 else (3 if color_type == 2 else 1)
+    stride = width * bpp
+    img_data = bytearray(height * width * 4)
+
+    # Decode filter per scanline
+    src_idx = 0
+    prev_row = bytearray(stride)
+    curr_row = bytearray(stride)
+
+    for y in range(height):
+        filter_type = raw_decompressed[src_idx]
+        src_idx += 1
+        raw_row = raw_decompressed[src_idx : src_idx + stride]
+        src_idx += stride
+
+        if filter_type == 0:  # None
+            curr_row[:] = raw_row
+        elif filter_type == 1:  # Sub
+            for i in range(stride):
+                left = curr_row[i - bpp] if i >= bpp else 0
+                curr_row[i] = (raw_row[i] + left) & 0xFF
+        elif filter_type == 2:  # Up
+            for i in range(stride):
+                curr_row[i] = (raw_row[i] + prev_row[i]) & 0xFF
+        elif filter_type == 3:  # Average
+            for i in range(stride):
+                left = curr_row[i - bpp] if i >= bpp else 0
+                up = prev_row[i]
+                curr_row[i] = (raw_row[i] + ((left + up) >> 1)) & 0xFF
+        elif filter_type == 4:  # Paeth
+            for i in range(stride):
+                a = curr_row[i - bpp] if i >= bpp else 0
+                b = prev_row[i]
+                c = prev_row[i - bpp] if i >= bpp else 0
+                p = a + b - c
+                pa = abs(p - a)
+                pb = abs(p - b)
+                pc = abs(p - c)
+                pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
+                curr_row[i] = (raw_row[i] + pr) & 0xFF
+
+        # Copy to RGBA output
+        dst_y = y * width * 4
+        if bpp == 4:
+            img_data[dst_y : dst_y + stride] = curr_row
+        elif bpp == 3:
+            for x in range(width):
+                rx = x * 3
+                dx = dst_y + x * 4
+                img_data[dx] = curr_row[rx]
+                img_data[dx + 1] = curr_row[rx + 1]
+                img_data[dx + 2] = curr_row[rx + 2]
+                img_data[dx + 3] = 255
+        elif bpp == 1:
+            for x in range(width):
+                val = curr_row[x]
+                dx = dst_y + x * 4
+                img_data[dx] = val
+                img_data[dx + 1] = val
+                img_data[dx + 2] = val
+                img_data[dx + 3] = 255
+
+        prev_row[:] = curr_row
+
+    arr = np.frombuffer(img_data, dtype=np.uint8).reshape((height, width, 4))
+    return arr
+
+
+def write_png_rgba(file_path: str, width: int, height: int, rgba_bytes: bytes) -> None:
+    """Writes a standard uncompressed/zlib RGBA PNG using standard library."""
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", crc)
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    stride = width * 4
+    raw_scanlines = bytearray()
+    for y in range(height):
+        raw_scanlines.append(0)  # filter type 0 (None)
+        raw_scanlines.extend(rgba_bytes[y * stride : (y + 1) * stride])
+
+    idat = zlib.compress(bytes(raw_scanlines), level=6)
+    with open(file_path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n")
+        f.write(chunk(b"IHDR", ihdr))
+        f.write(chunk(b"IDAT", idat))
+        f.write(chunk(b"IEND", b""))
+
+
+def crop_png(input_path: str, output_path: str, x: int, y: int, w: int, h: int) -> None:
+    """Crops a region from a PNG and saves as a new PNG."""
+    arr = read_png_rgba(input_path)
+    h_max, w_max, _ = arr.shape
+    x0 = max(0, min(w_max - 1, x))
+    y0 = max(0, min(h_max - 1, y))
+    x1 = max(x0 + 1, min(w_max, x + w))
+    y1 = max(y0 + 1, min(h_max, y + h))
+    cropped = arr[y0:y1, x0:x1]
+    ch, cw, _ = cropped.shape
+    write_png_rgba(output_path, cw, ch, cropped.tobytes())
+
+
+def generate_image_tiles(
+    png_path: str,
+    out_dir: str,
+    tile_cols: int = 2,
+    tile_rows: int = 2
+) -> List[str]:
+    """
+    Safe Multimodal Reader: Slices a high-resolution drawing into small tiles
+    to prevent multimodal API 400 Bad Request errors.
+    """
+    import os
+    os.makedirs(out_dir, exist_ok=True)
+    arr = read_png_rgba(png_path)
+    h, w, _ = arr.shape
+    base_name = os.path.splitext(os.path.basename(png_path))[0]
+
+    tile_w = w // tile_cols
+    tile_h = h // tile_rows
+    tile_paths = []
+
+    for r in range(tile_rows):
+        for c in range(tile_cols):
+            x = c * tile_w
+            y = r * tile_h
+            sub = arr[y : y + tile_h, x : x + tile_w]
+            out_path = os.path.join(out_dir, f"{base_name}_r{r}_c{c}.png")
+            write_png_rgba(out_path, tile_w, tile_h, sub.tobytes())
+            tile_paths.append(out_path)
+
+    return tile_paths
+
+
+def detect_grid_anchors(arr_rgba: np.ndarray) -> Dict[str, Any]:
+    """
+    Detects structural grid lines and column anchors from a drawing raster.
+    Uses luminance projections to locate horizontal and vertical grid lines.
+    """
+    # Convert RGBA to grayscale
+    gray = (
+        0.299 * arr_rgba[:, :, 0].astype(float)
+        + 0.587 * arr_rgba[:, :, 1].astype(float)
+        + 0.114 * arr_rgba[:, :, 2].astype(float)
+    )
+    # Drawing lines are dark on light background (invert so lines are peaks)
+    inv = 255.0 - gray
+    h, w = inv.shape
+
+    # Marginal projection profiles
+    proj_x = np.sum(inv[int(h * 0.1) : int(h * 0.9), :], axis=0)
+    proj_y = np.sum(inv[:, int(w * 0.1) : int(w * 0.9)], axis=1)
+
+    # Find dominant peaks with distance filtering
+    def find_peaks(profile, min_dist=50, threshold_ratio=0.3):
+        thresh = np.max(profile) * threshold_ratio
+        peaks = []
+        for i in range(1, len(profile) - 1):
+            if profile[i] > thresh and profile[i] >= profile[i - 1] and profile[i] >= profile[i + 1]:
+                if not peaks or (i - peaks[-1]) >= min_dist:
+                    peaks.append(i)
+                elif profile[i] > profile[peaks[-1]]:
+                    peaks[-1] = i
+        return peaks
+
+    grid_x = find_peaks(proj_x, min_dist=int(w * 0.08))
+    grid_y = find_peaks(proj_y, min_dist=int(h * 0.08))
+
+    return {
+        "image_width": w,
+        "image_height": h,
+        "grid_x_pixels": grid_x,
+        "grid_y_pixels": grid_y,
+        "estimated_col_bays": max(1, len(grid_x) - 1),
+        "estimated_row_bays": max(1, len(grid_y) - 1),
+    }
+
+
+def create_dc_hall_ifc(
+    output_path: str,
+    project_name: str = "DC Model",
+    hall_name: str = "DATA HALL 1",
+    storey_name: str = "LEVEL 1",
+    building_name: str = "DC-01",
+    hall_footprint_mm: Sequence[Tuple[float, float]] = [(0.0, 0.0), (27000.0, 0.0), (27000.0, 21000.0), (0.0, 21000.0)],
+    hall_height_mm: float = 4500.0,
+    racks: Sequence[Dict[str, Any]] = (),
+    crahs: Sequence[Dict[str, Any]] = (),
+    pdus: Sequence[Dict[str, Any]] = (),
+    columns: Sequence[Dict[str, Any]] = (),
+    sprinklers: Sequence[Dict[str, Any]] = (),
+    cable_trays: Sequence[Dict[str, Any]] = (),
+    busways: Sequence[Dict[str, Any]] = (),
+    chw_pipes: Sequence[Dict[str, Any]] = ()
+) -> None:
+    """
+    Creates a 100% compliant IFC4 STEP model for dc_model MEP routing benchmark.
+    Follows EXPRESS rules (2D profiles only, OuterCurve.Dim == 2) and placement matrix
+    conventions (matrix translations scaled to metres while file units are MILLIMETRES).
+    """
+    import ifcopenshell
+    import ifcopenshell.api
+
+    run = ifcopenshell.api.run
+
+    model = run("project.create_file", version="IFC4")
+    project = run("root.create_entity", model, ifc_class="IfcProject", name=project_name)
+    run("unit.assign_unit", model, length={"is_metric": True, "raw": "MILLIMETERS"})
+
+    ctx = run("context.add_context", model, context_type="Model")
+    body = run("context.add_context", model, context_type="Model",
+               context_identifier="Body", target_view="MODEL_VIEW", parent=ctx)
+
+    site = run("root.create_entity", model, ifc_class="IfcSite", name="SITE")
+    building = run("root.create_entity", model, ifc_class="IfcBuilding", name=building_name)
+    storey = run("root.create_entity", model, ifc_class="IfcBuildingStorey", name=storey_name)
+    hall = run("root.create_entity", model, ifc_class="IfcSpace", name=hall_name)
+
+    run("aggregate.assign_object", model, products=[site], relating_object=project)
+    run("aggregate.assign_object", model, products=[building], relating_object=site)
+    run("aggregate.assign_object", model, products=[storey], relating_object=building)
+    run("aggregate.assign_object", model, products=[hall], relating_object=storey)
+
+    # Helper for 2D closed polyline profile
+    def make_profile_2d(pts_mm):
+        pts = list(pts_mm)
+        if pts[0] != pts[-1]:
+            pts.append(pts[0])
+        poly = model.create_entity(
+            "IfcPolyline",
+            Points=[
+                model.create_entity("IfcCartesianPoint", Coordinates=(float(p[0]), float(p[1])))
+                for p in pts
+            ]
+        )
+        return model.create_entity("IfcArbitraryClosedProfileDef", ProfileType="AREA", OuterCurve=poly)
+
+    def make_extruded_rep(profile_2d, depth_mm):
+        solid = model.create_entity(
+            "IfcExtrudedAreaSolid",
+            SweptArea=profile_2d,
+            Position=model.create_entity(
+                "IfcAxis2Placement3D",
+                Location=model.create_entity("IfcCartesianPoint", Coordinates=(0.0, 0.0, 0.0))
+            ),
+            ExtrudedDirection=model.create_entity("IfcDirection", DirectionRatios=(0.0, 0.0, 1.0)),
+            Depth=float(depth_mm)
+        )
+        return model.create_entity(
+            "IfcShapeRepresentation",
+            ContextOfItems=body,
+            RepresentationIdentifier="Body",
+            RepresentationType="SweptSolid",
+            Items=[solid]
+        )
+
+    def make_box_rep(w_mm, d_mm, h_mm):
+        prof = make_profile_2d([(0.0, 0.0), (w_mm, 0.0), (w_mm, d_mm), (0.0, d_mm)])
+        return make_extruded_rep(prof, h_mm)
+
+    def place_elem(elem, x_mm, y_mm, z_mm=0.0, rot_deg=0.0, pivot_mm=None):
+        r = np.radians(float(rot_deg))
+        c, s = np.cos(r), np.sin(r)
+        rot_m = np.eye(4)
+        rot_m[0, 0], rot_m[0, 1] = c, -s
+        rot_m[1, 0], rot_m[1, 1] = s, c
+
+        t_m = np.eye(4)
+        t_m[:3, 3] = (float(x_mm), float(y_mm), float(z_mm))
+
+        if rot_deg != 0.0 and pivot_mm is not None:
+            px, py = pivot_mm
+            p_to = np.eye(4); p_to[:3, 3] = (px, py, 0.0)
+            p_back = np.eye(4); p_back[:3, 3] = (-px, -py, 0.0)
+            mat = t_m @ p_to @ rot_m @ p_back
+        elif rot_deg != 0.0:
+            mat = t_m @ rot_m
+        else:
+            mat = t_m
+
+        # Convert translation from mm to metres for edit_object_placement
+        mat_ifc = np.array(mat, dtype=float, copy=True)
+        mat_ifc[:3, 3] = mat_ifc[:3, 3] / 1000.0
+
+        run("geometry.edit_object_placement", model, product=elem, matrix=mat_ifc)
+
+    # Set hall space representation
+    hall_prof = make_profile_2d(hall_footprint_mm)
+    run("geometry.assign_representation", model, product=hall,
+        representation=make_extruded_rep(hall_prof, hall_height_mm))
+    place_elem(hall, 0.0, 0.0, 0.0)
+
+    # Helper to add physical element
+    def add_element(ifc_cls, name, w_mm, d_mm, h_mm, x_mm, y_mm, z_mm=0.0,
+                    predefined=None, obj_type=None, rot_deg=0.0, pivot_mm=None, psets=None):
+        prod = run("root.create_entity", model, ifc_class=ifc_cls, name=name)
+        if predefined:
+            prod.PredefinedType = predefined
+        if obj_type:
+            prod.ObjectType = obj_type
+
+        run("spatial.assign_container", model, products=[prod], relating_structure=hall)
+        rep = make_box_rep(w_mm, d_mm, h_mm)
+        run("geometry.assign_representation", model, product=prod, representation=rep)
+        place_elem(prod, x_mm, y_mm, z_mm, rot_deg=rot_deg, pivot_mm=pivot_mm)
+
+        if psets:
+            for pset_name, props in psets.items():
+                pset = run("pset.add_pset", model, product=prod, name=pset_name)
+                run("pset.edit_pset", model, pset=pset, properties=props)
+        return prod
+
+    # 1. Racks
+    for idx, rk in enumerate(racks):
+        name = rk.get("name", f"Rack_{idx+1}")
+        w = float(rk.get("width_mm", 600.0))
+        d = float(rk.get("depth_mm", 1200.0))
+        h = float(rk.get("height_mm", 2000.0))
+        x = float(rk.get("x_mm", 0.0))
+        y = float(rk.get("y_mm", 0.0))
+        z = float(rk.get("z_mm", 0.0))
+        facing = rk.get("facing", "NORTH")
+        rot = 0.0 if facing == "NORTH" else (180.0 if facing == "SOUTH" else (270.0 if facing == "EAST" else 90.0))
+        psets = {"Pset_DCM_Rack": {"FacingDirection": facing}}
+        add_element("IfcFurniture", name, w, d, h, x, y, z,
+                    predefined="USERDEFINED", obj_type="Rack", rot_deg=rot,
+                    pivot_mm=(w / 2.0, d / 2.0), psets=psets)
+
+    # 2. Columns
+    for idx, col in enumerate(columns):
+        name = col.get("name", f"Col_{idx+1}")
+        w = float(col.get("width_mm", 600.0))
+        d = float(col.get("depth_mm", 600.0))
+        h = float(col.get("height_mm", hall_height_mm))
+        x = float(col.get("x_mm", 0.0))
+        y = float(col.get("y_mm", 0.0))
+        z = float(col.get("z_mm", 0.0))
+        add_element("IfcColumn", name, w, d, h, x, y, z)
+
+    # 3. CRAHs
+    for idx, cr in enumerate(crahs):
+        name = cr.get("name", f"CRAH_{idx+1}")
+        w = float(cr.get("width_mm", 2400.0))
+        d = float(cr.get("depth_mm", 1000.0))
+        h = float(cr.get("height_mm", 2200.0))
+        x = float(cr.get("x_mm", 0.0))
+        y = float(cr.get("y_mm", 0.0))
+        z = float(cr.get("z_mm", 0.0))
+        add_element("IfcUnitaryEquipment", name, w, d, h, x, y, z, obj_type="CRAH")
+
+    # 4. PDUs
+    for idx, pdu in enumerate(pdus):
+        name = pdu.get("name", f"PDU_{idx+1}")
+        w = float(pdu.get("width_mm", 1000.0))
+        d = float(pdu.get("depth_mm", 1000.0))
+        h = float(pdu.get("height_mm", 2000.0))
+        x = float(pdu.get("x_mm", 0.0))
+        y = float(pdu.get("y_mm", 0.0))
+        z = float(pdu.get("z_mm", 0.0))
+        add_element("IfcUnitaryEquipment", name, w, d, h, x, y, z, obj_type="PDU")
+
+    # 5. Sprinklers
+    for idx, sp in enumerate(sprinklers):
+        name = sp.get("name", f"Sprinkler_{idx+1}")
+        w = float(sp.get("width_mm", 100.0))
+        d = float(sp.get("depth_mm", 100.0))
+        h = float(sp.get("height_mm", 100.0))
+        x = float(sp.get("x_mm", 0.0))
+        y = float(sp.get("y_mm", 0.0))
+        z = float(sp.get("z_mm", 3800.0))
+        add_element("IfcFlowTerminal", name, w, d, h, x, y, z, obj_type="Sprinkler")
+
+    # 6. Overhead Services (Cable Tray, Busway, CHW Pipe)
+    for idx, seg in enumerate(cable_trays):
+        name = seg.get("name", f"Tray_{idx+1}")
+        w = float(seg.get("width_mm", 600.0))
+        d = float(seg.get("depth_mm", 100.0))
+        h = float(seg.get("height_mm", 100.0))
+        x = float(seg.get("x_mm", 0.0))
+        y = float(seg.get("y_mm", 0.0))
+        z = float(seg.get("z_mm", 3100.0))
+        add_element("IfcCableCarrierSegment", name, w, d, h, x, y, z,
+                    predefined="CABLETRAYSEGMENT", obj_type="CableTray")
+
+    for idx, seg in enumerate(busways):
+        name = seg.get("name", f"Busway_{idx+1}")
+        w = float(seg.get("width_mm", 200.0))
+        d = float(seg.get("depth_mm", 100.0))
+        h = float(seg.get("height_mm", 100.0))
+        x = float(seg.get("x_mm", 0.0))
+        y = float(seg.get("y_mm", 0.0))
+        z = float(seg.get("z_mm", 2750.0))
+        add_element("IfcFlowSegment", name, w, d, h, x, y, z,
+                    predefined="BUSWAY", obj_type="Busway")
+
+    for idx, seg in enumerate(chw_pipes):
+        name = seg.get("name", f"CHW_{idx+1}")
+        w = float(seg.get("width_mm", 150.0))
+        d = float(seg.get("depth_mm", 150.0))
+        h = float(seg.get("height_mm", 150.0))
+        x = float(seg.get("x_mm", 0.0))
+        y = float(seg.get("y_mm", 0.0))
+        z = float(seg.get("z_mm", 3400.0))
+        add_element("IfcPipeSegment", name, w, d, h, x, y, z, obj_type="ChilledWaterPipe")
+
+    model.write(output_path)
+
+
