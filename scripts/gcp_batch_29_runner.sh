@@ -209,6 +209,32 @@ for idx in "${!TASKS[@]}"; do
   echo "Time: $(date -u)"
   echo "=========================================================="
   
+  # Check if task already has a passing score (> 0) in previous runs - skip if already scored
+  ALREADY_SCORED=$(python3 -c "
+import json, glob, sys
+task = sys.argv[1]
+scored = False
+for pattern in ['/opt/benchmark/ple/runs/**/' + task + '*/result*.json', '/opt/benchmark/ple/runs/**/' + task + '*/results.json']:
+    for f in glob.glob(pattern, recursive=True):
+        try:
+            d = json.load(open(f))
+            score = d.get('score') if d.get('score') is not None else d.get('metrics', {}).get('score', 0.0)
+            if float(score) > 0.0:
+                scored = True
+                break
+        except:
+            pass
+    if scored:
+        break
+print('YES' if scored else 'NO')
+" "$TASK" 2>/dev/null || echo "NO")
+
+  if [ "$ALREADY_SCORED" = "YES" ]; then
+    echo "⏩ Task $TASK already has a score > 0! Skipping as requested by user."
+    COMPLETED_COUNT=$((COMPLETED_COUNT + 1))
+    continue
+  fi
+
   # Canary credit check before running task
   if ! check_canary_quota; then
     echo "AI Studio Credit Exhausted! Halting batch execution."
