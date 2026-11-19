@@ -84,7 +84,6 @@ git clone -b feature/antigravity-sdk https://github.com/PRIDA-TAKON/debim-ple-ha
 cd "$WORKDIR/ple"
 
 PROXY_KEY="sk-debim-ple-local-proxy-key"
-export VERTEXAI_PROJECT="${PROJECT_ID}"
 export MODEL_PROXY_KEY="${PROXY_KEY}"
 export MODEL_PROXY_URL="http://127.0.0.1:4000"
 export GEMINI_API_KEY="${API_KEY}"
@@ -94,7 +93,6 @@ cat <<EOF > .env
 HF_TOKEN=${HF_TOKEN}
 GEMINI_API_KEY=${API_KEY}
 GOOGLE_API_KEY=${API_KEY}
-VERTEXAI_PROJECT=${PROJECT_ID}
 MODEL_PROXY_URL=http://127.0.0.1:4000
 MODEL_PROXY_KEY=${PROXY_KEY}
 EOF
@@ -103,6 +101,32 @@ EOF
 cat <<EOF > "$WORKDIR/debim-ple-harness/.env"
 GEMINI_API_KEY=${API_KEY}
 GOOGLE_API_KEY=${API_KEY}
+EOF
+
+# Explicitly configure LiteLLM to use Gemini API Key (AI Studio), NOT Vertex AI
+cat <<EOF > kit/model_proxy/config.yaml
+model_list:
+  - model_name: gemini-3.8-flash
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: claude-opus-5-5
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+      drop_params: true
+  - model_name: gemini-4-argon
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+litellm_settings:
+  drop_params: true
+  num_retries: 3
+  request_timeout: 1800
+
+general_settings:
+  master_key: os.environ/MODEL_PROXY_KEY
 EOF
 
 echo "=== Starting LiteLLM Model Proxy on port 4000 ==="
