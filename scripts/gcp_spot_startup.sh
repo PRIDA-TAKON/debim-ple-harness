@@ -43,10 +43,29 @@ WORKDIR="/opt/benchmark"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
-# 2. Install Dependencies (Docker, git, curl, uv, python3)
+# 2. Install Dependencies (Docker, git, curl, uv, python3, iptables)
 apt-get update -y
-apt-get install -y docker.io git curl python3
-systemctl start docker
+apt-get install -y git curl python3 iptables
+
+# Set iptables to legacy mode on Debian 12 to ensure Docker bridge networking creates NAT/Gateway
+update-alternatives --set iptables /usr/sbin/iptables-legacy || true
+update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy || true
+
+# Explicitly configure Docker default bridge with 172.17.0.1 gateway
+mkdir -p /etc/docker
+cat <<EOF > /etc/docker/daemon.json
+{
+  "bip": "172.17.0.1/16"
+}
+EOF
+
+# Install Docker CE
+curl -fsSL https://get.docker.com | sh || apt-get install -y docker.io
+systemctl restart docker
+
+# Verify Docker bridge gateway is active
+echo "Docker bridge gateway:"
+docker network inspect bridge --format "{{range .IPAM.Config}}{{.Gateway}} {{end}}"
 
 # Install uv and link to system path
 curl -LsSf https://astral.sh/uv/install.sh | sh
