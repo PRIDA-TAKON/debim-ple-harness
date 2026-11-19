@@ -1,7 +1,7 @@
 name: debim-ple-harness
-model_api: gemini/antigravity-preview-latest
+model_api: google-cloud/gemma-4-26b
 install: bash {src}/install.sh
 serve: /opt/harness/venv/bin/python {src}/serve.py
 env:
-  AGY_MODEL: "antigravity-preview-latest"
+  AGY_MODEL: "gemma-4-26b"
   AGY_EFFORT: "high"
