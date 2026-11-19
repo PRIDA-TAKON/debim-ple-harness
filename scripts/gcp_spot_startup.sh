@@ -106,18 +106,22 @@ EOF
 # Explicitly configure LiteLLM to use Gemini API Key (AI Studio), NOT Vertex AI
 cat <<EOF > kit/model_proxy/config.yaml
 model_list:
+  - model_name: antigravity-preview-latest
+    litellm_params:
+      model: gemini/antigravity-preview-latest
+      api_key: os.environ/GEMINI_API_KEY
   - model_name: gemini-3.8-flash
     litellm_params:
-      model: gemini/gemini-3.8-flash
+      model: gemini/antigravity-preview-latest
       api_key: os.environ/GEMINI_API_KEY
   - model_name: claude-opus-5-5
     litellm_params:
-      model: gemini/gemini-3.8-flash
+      model: gemini/antigravity-preview-latest
       api_key: os.environ/GEMINI_API_KEY
       drop_params: true
   - model_name: gemini-4-argon
     litellm_params:
-      model: gemini/gemini-3.8-flash
+      model: gemini/antigravity-preview-latest
       api_key: os.environ/GEMINI_API_KEY
 
 litellm_settings:

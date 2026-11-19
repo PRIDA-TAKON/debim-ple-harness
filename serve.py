@@ -77,6 +77,8 @@ TASK_TOOLS = ("shell", "read_file", "write_file", "edit_file")
 # Models built into agy 1.4.10 for a Gemini API key (`agy models`); agy applies
 # its own compaction limit to each
 CATALOG = (
+    "antigravity-preview-latest",
+    "antigravity",
     "gemini-4-argon",
     "gemini-3.8-flash",
     "gemini-3.7-flash",
