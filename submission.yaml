@@ -1,11 +1,6 @@
 name: debim-ple-harness
-model_api: google-cloud/gemma-4-26b
+model_api: google-cloud/gemini-3.8-flash
 install: bash {src}/install.sh
 serve: /opt/harness/venv/bin/python {src}/serve.py
 env:
-  GEMINI_API_KEY: "${GEMINI_API_KEY}"
-  GOOGLE_API_KEY: "${GEMINI_API_KEY}"
-  MODEL_PROXY_URL: "${MODEL_PROXY_URL}"
-  MODEL_PROXY_KEY: "${MODEL_PROXY_KEY}"
-  AGY_MODEL: "gemma-4-26b"
   AGY_EFFORT: "high"
