@@ -54,6 +54,14 @@ if env_file.exists():
       k, v = line.split("=", 1)
       os.environ.setdefault(k.strip(), v.strip())
 
+# Ensure loopback / internal connections bypass HTTP_PROXY (prevents websockets 403)
+_no_proxy = [x.strip() for x in os.environ.get("NO_PROXY", os.environ.get("no_proxy", "")).split(",") if x.strip()]
+for _h in ("127.0.0.1", "localhost", "host.docker.internal", "egress"):
+  if _h not in _no_proxy:
+    _no_proxy.append(_h)
+os.environ["NO_PROXY"] = ",".join(_no_proxy)
+os.environ["no_proxy"] = os.environ["NO_PROXY"]
+
 try:
   from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig, types
   SDK_AVAILABLE = True
