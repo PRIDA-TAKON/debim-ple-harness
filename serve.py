@@ -44,6 +44,21 @@ from typing import Any
 import taskbridge
 
 HERE = pathlib.Path(__file__).resolve().parent
+
+# Auto-load .env if present (Zero-dependency)
+env_file = HERE / ".env"
+if env_file.exists():
+  for line in env_file.read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if line and not line.startswith("#") and "=" in line:
+      k, v = line.split("=", 1)
+      os.environ.setdefault(k.strip(), v.strip())
+
+try:
+  from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig, types
+  SDK_AVAILABLE = True
+except ImportError:
+  SDK_AVAILABLE = False
 AGY = "/opt/harness/bin/agy"
 EFFORT = os.environ.get("AGY_EFFORT", "high")
 STOP_BEFORE_SEC = 90
@@ -611,6 +626,37 @@ async def solve(session: taskbridge.Session) -> str:
     home = pathlib.Path(scratch)
     async with taskbridge.Relay(session) as relay:
       await configure(session, relay, home)
+      if SDK_AVAILABLE:
+        try:
+          await session.log("Executing via google-antigravity Python SDK (Native In-Memory)...")
+          bridge = "task"
+          stdio_server = types.McpStdioServer(
+              name=bridge,
+              command=sys.executable,
+              args=[str(HERE / "task_mcp.py")],
+              env={"TASK_RELAY_URL": relay.url, "TASK_WORKDIR": session.workdir},
+          )
+          left = session.time_left()
+          minutes = "unlimited" if left is None else int(left // 60)
+          system_instructions = AGENT.format(
+              workdir=session.workdir, minutes=minutes, apps="", bridge=bridge
+          )
+          config = LocalAgentConfig(
+              system_instructions=system_instructions,
+              capabilities=CapabilitiesConfig(),
+              mcp_servers=[stdio_server],
+          )
+          full_text = []
+          async with Agent(config) as agent:
+            resp = await agent.chat(session.instruction)
+            async for token in resp:
+              full_text.append(token)
+          session.final_message = "".join(full_text) or session.final_message
+          await ensure_safety_fallback_submission(session)
+          return session.final_message or NO_ANSWER
+        except Exception as sdk_err:
+          await session.log(f"google-antigravity SDK notice: {sdk_err}. Falling back to CLI runner...")
+
       prompt, conversation = session.instruction, None
       for n in range(MAX_RUNS):
         stream, pidfile = home / f"stream{n}.jsonl", home / f"agy{n}.pid"
