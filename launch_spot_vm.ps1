@@ -1,6 +1,7 @@
 ﻿param (
     [string]$TaskName = "footing-settlement-verification",
     [string]$Zone = "us-central1-a",
+    [string]$MachineType = "e2-standard-8",
     [string]$Bucket = "gs://lab-ai-972593-ple-results"
 )
 
@@ -39,7 +40,7 @@ Write-Host "🚀 Launching PLE Spot VM on Google Cloud Platform" -ForegroundColo
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "VM Name     : $InstanceName"
 Write-Host "Zone        : $Zone"
-Write-Host "Model / Type: e2-standard-2 (Spot VM, ~0.50 THB/hr)"
+Write-Host "Model / Type: $MachineType (Spot VM, ~2.30 THB/hr)"
 Write-Host "Task Name   : $TaskName"
 Write-Host "Results GCS : $Bucket/$TaskName"
 Write-Host "Auto-Delete : Enabled (Max 6 hours or upon completion)"
@@ -52,8 +53,8 @@ if ($HfToken) {
 
 gcloud compute instances create $InstanceName `
     --zone=$Zone `
-    --machine-type="e2-standard-2" `
-    --boot-disk-size=50GB `
+    --machine-type=$MachineType `
+    --boot-disk-size=80GB `
     --provisioning-model=SPOT `
     --instance-termination-action=DELETE `
     --max-run-duration=6h `
