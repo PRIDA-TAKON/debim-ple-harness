@@ -40,7 +40,7 @@ Write-Host "🚀 Launching PLE Spot VM on Google Cloud Platform" -ForegroundColo
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "VM Name     : $InstanceName"
 Write-Host "Zone        : $Zone"
-Write-Host "Model / Type: $MachineType (Spot VM, ~2.30 THB/hr)"
+Write-Host "Model / Type: $MachineType (Spot VM, ~2.30 THB/hr) with High-Speed SSD (pd-ssd)"
 Write-Host "Task Name   : $TaskName"
 Write-Host "Results GCS : $Bucket/$TaskName"
 Write-Host "Auto-Delete : Enabled (Max 6 hours or upon completion)"
@@ -54,7 +54,8 @@ if ($HfToken) {
 gcloud compute instances create $InstanceName `
     --zone=$Zone `
     --machine-type=$MachineType `
-    --boot-disk-size=80GB `
+    --boot-disk-type=pd-ssd `
+    --boot-disk-size=100GB `
     --provisioning-model=SPOT `
     --instance-termination-action=DELETE `
     --max-run-duration=6h `
