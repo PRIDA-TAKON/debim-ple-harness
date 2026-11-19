@@ -257,7 +257,7 @@ STATUS_EOF
   
   # Cleanup docker containers & unused build cache to preserve disk space
   echo "=== Cleaning container memory and dangling volumes ==="
-  docker rm -f \$(docker ps -aq) 2>/dev/null || true
+  docker rm -f $(docker ps -aq) 2>/dev/null || true
   docker builder prune -f --filter "until=2h" 2>/dev/null || true
 done
 
