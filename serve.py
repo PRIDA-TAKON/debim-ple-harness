@@ -645,7 +645,11 @@ async def solve(session: taskbridge.Session) -> str:
           system_instructions = AGENT.format(
               workdir=session.workdir, minutes=minutes, apps="", bridge=bridge
           )
+          gemini_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+          target_model = os.environ.get("AGY_MODEL", "gemma-4-26b")
           config = LocalAgentConfig(
+              api_key=gemini_key,
+              model=target_model,
               system_instructions=system_instructions,
               capabilities=CapabilitiesConfig(),
               mcp_servers=[stdio_server],

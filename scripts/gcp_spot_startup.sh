@@ -132,9 +132,6 @@ litellm_settings:
   drop_params: true
   num_retries: 3
   request_timeout: 1800
-
-general_settings:
-  master_key: os.environ/MODEL_PROXY_KEY
 EOF
 
 echo "=== Starting LiteLLM Model Proxy on port 4000 ==="

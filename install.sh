@@ -14,8 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build step: Python venv for serve.py with google-antigravity SDK and debim, all under /opt/harness.
+# Build step: Python venv for serve.py with google-antigravity SDK, agy CLI binary, and debim, all under /opt/harness.
 set -euo pipefail
 mkdir -p /opt/harness/bin
+
+# agy 1.4.10 binary (checksum verified fallback)
+AGY_URL=https://storage.googleapis.com/antigravity-public/antigravity-cli/1.4.10-5501573669978112/linux-x64/cli_linux_x64.tar.gz
+AGY_SHA512=3a14c21697e86349ce8402e0b1889cbd1d3a5f4e2cb4dc43aae1c48c404240c2ccff9f775eec277e1f759234a33ec026645c63ed22ab6f6ebede561eda7c38b6
+curl -fsSL "$AGY_URL" -o /tmp/agy.tar.gz
+echo "$AGY_SHA512  /tmp/agy.tar.gz" | sha512sum -c -
+tar -xzf /tmp/agy.tar.gz -C /opt/harness/bin antigravity
+mv /opt/harness/bin/antigravity /opt/harness/bin/agy
+chmod +x /opt/harness/bin/agy
+rm -f /tmp/agy.tar.gz
+
 uv venv --python 3.12 /opt/harness/venv
 uv pip install --python /opt/harness/venv/bin/python -r "$(dirname "$0")/requirements.txt"
