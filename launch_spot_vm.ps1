@@ -53,6 +53,7 @@ if ($HfToken) {
 gcloud compute instances create $InstanceName `
     --zone=$Zone `
     --machine-type="e2-standard-2" `
+    --boot-disk-size=50GB `
     --provisioning-model=SPOT `
     --instance-termination-action=DELETE `
     --max-run-duration=6h `

@@ -43,13 +43,19 @@ WORKDIR="/opt/benchmark"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
-# 2. Install Dependencies (Docker, git, curl, uv, python3-pip)
+# 2. Install Dependencies (Docker, git, curl, uv, python3)
 apt-get update -y
-apt-get install -y docker.io git curl
+apt-get install -y docker.io git curl python3
 systemctl start docker
 
+# Install uv and link to system path
 curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="/root/.local/bin:$PATH"
+ln -sf /root/.local/bin/uv /usr/local/bin/uv
+
+# Install Harbor 0.20.0 with websockets (strictly required by PLE eval/run.py)
+uv tool install harbor==0.20.0 --with websockets
+ln -sf /root/.local/bin/harbor /usr/local/bin/harbor
 
 # 3. Clone Repositories
 git clone https://github.com/google-research/ple.git ple || true
@@ -96,7 +102,7 @@ done
 # 5. Run Evaluation via PLE Benchmark (Automatically downloads task files from Hugging Face)
 echo "=== Starting PLE Evaluation for task: ${TASK_NAME} ==="
 # Timeout 350m (5h 50m) to preserve last 10m for GCS sync and self-deletion
-timeout 350m uv run python eval/run.py ../debim-ple-harness --tasks "${TASK_NAME}" --env-file .env || echo "Execution finished or timeout reached."
+timeout 350m uv run python eval/run.py ../debim-ple-harness --tasks "${TASK_NAME}" --env-file .env 2>&1 | tee /tmp/eval_run.log || echo "Execution finished or timeout reached."
 
 # 6. Upload Results, Artifacts, and Logs to Google Cloud Storage
 echo "=== Uploading results to ${GCS_BUCKET}/${TASK_NAME} ==="
@@ -107,6 +113,7 @@ if [ -d "../debim-ple-harness/artifacts" ]; then
   gsutil -m cp -r ../debim-ple-harness/artifacts/ "${GCS_BUCKET}/${TASK_NAME}/artifacts" || true
 fi
 gsutil cp /tmp/litellm.log "${GCS_BUCKET}/${TASK_NAME}/litellm.log" || true
+gsutil cp /tmp/eval_run.log "${GCS_BUCKET}/${TASK_NAME}/eval_run.log" || true
 
 # 7. Self-destruct VM immediately to prevent any extra charges
 echo "=== Finished! Self-deleting VM ${NAME} in zone ${ZONE} ==="
