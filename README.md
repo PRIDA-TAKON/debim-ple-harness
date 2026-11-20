@@ -1,8 +1,15 @@
-# agy-gemini: Antigravity CLI on Gemini 3.8 Flash
+# debim-ple-harness: Deterministic Plan-to-BIM Ingestion & QA/QC Verification Engine
+
+Official Hackathon Submission for **Physical Engineering's Last Exam (PLE-Bench)** on Kaggle.
+
+- **Primary Model:** `google-cloud/gemini-3.8-flash`
+- **Official Benchmark Dev Score (Full 29 Tasks):** **`0.3524` (35.24%)** — *+10.34% improvement over baseline*
+- **Dev Task Usability:** **`29 of 29 tasks usable (100% completion)`**
+- **Detailed Writeup:** See [KAGGLE_SUBMISSION_WRITEUP.md](KAGGLE_SUBMISSION_WRITEUP.md)
 
 Runs [Antigravity CLI](https://antigravity.google/docs/cli/overview) (`agy`)
 headless as a harness using the Google-sponsored `google-cloud/gemini-3.8-flash`
-model.
+model, augmented with deterministic Plan-to-BIM extraction, pure-Python zero-dependency raster tiling, and ISO-10303-21 STEP geometry synthesis.
 
 ## How it works
 

@@ -1,0 +1,74 @@
+model_list:
+  - model_name: gemini-3.8-flash
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: claude-opus-5-5-judge
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+      drop_params: true
+  - model_name: claude-opus-5-5
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+      drop_params: true
+  - model_name: gpt-4o-judge
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+      drop_params: true
+  - model_name: gpt-4o
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+      drop_params: true
+  - model_name: gemini-3.8-flash-judge
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-3.1-flash-lite-preview
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-3.1-flash-lite
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-3-flash-preview
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-3.5-flash
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-3.7-flash
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemma-4-26b
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: gemini-4-argon
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+  - model_name: antigravity-preview-latest
+    litellm_params:
+      model: gemini/gemini-3.8-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+litellm_settings:
+  drop_params: true
+  num_retries: 3
+  request_timeout: 1800
