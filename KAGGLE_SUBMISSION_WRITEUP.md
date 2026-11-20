@@ -1,6 +1,7 @@
 # debim-ple-harness: Deterministic Plan-to-BIM Ingestion and QA/QC Verification Engine
 
 - Repo: https://github.com/PRIDA-TAKON/debim-ple-harness
+- Commit SHA: 92f7ad8457e0342c4b829f4f52861a293e024281
 - Primary model_api: google-cloud/gemini-3.8-flash
 - Other models tested: google-cloud/gemini-3.1-pro-preview, google-cloud/gemini-4-argon
 - Dev score (29 tasks): **0.3524 (35.24%)** | 100% Complete (29/29 tasks scored & usable) | $0.52/task | 26 min/task
@@ -192,6 +193,7 @@ Score (0.0 to 1.0)
 
 The submitted repository is completely self-contained and strictly reproducible:
 - **Repository:** https://github.com/PRIDA-TAKON/debim-ple-harness
+- **Git Commit SHA:** `92f7ad8457e0342c4b829f4f52861a293e024281`
 - **License:** Official Apache-2.0 open-source license committed in repository root.
 - **Verification Gate Commands:**
   - `uv run python -m kit check ../debim-ple-harness`: **PASS** (Validates `submission.yaml`, Gemini model API mapping, and container structure).
