@@ -3,9 +3,9 @@
 # GCP On-Demand (Standard) 29-Task Sequential PLE Batch Runner
 # - Model: gemma-4-26b-a4b-it-maas via Google Cloud Vertex AI (Global MaaS Endpoint)
 # - Sequential execution of all 29 PLE-Bench tasks
-# - Per-Task Hard Timeout: 60 minutes (60m) to permanently prevent infinite loops
+# - Per-Task Hard Timeout: 90 minutes (90m) to permanently prevent infinite loops
 # - Canary Probe: Pre-checks Vertex AI Proxy health before each task
-# - OS-Level Watchdog: 29 hours (1740 minutes) automatic VM shutdown
+# - OS-Level Watchdog: 60 hours (3600 minutes) automatic VM shutdown
 # - Real-time GCS Sync after each task completion to gs://${PROJECT_ID}-ple-results/gemma4/
 # - Self-termination (poweroff) upon completion
 # ==============================================================================
@@ -14,9 +14,9 @@ set -x
 
 export DEBIAN_FRONTEND=noninteractive
 
-# 1. Start OS-Level Watchdog: 29 hours (1740 minutes)
-echo "=== Setting 29-hour OS Watchdog ==="
-shutdown -h +1740 "PLE 29-Task batch runner maximum runtime reached" &
+# 1. Start OS-Level Watchdog: 60 hours (3600 minutes) to support full ~45-hour runs
+echo "=== Setting 60-hour OS Watchdog ==="
+shutdown -h +3600 "PLE 29-Task batch runner maximum runtime reached" &
 
 # 2. Retrieve VM metadata
 METADATA_URL="http://metadata.google.internal/computeMetadata/v1"
@@ -225,12 +225,12 @@ print('YES' if scored else 'NO')
   
   TASK_LOG="/tmp/eval_logs/eval_${TASK}.log"
   
-  # Run Task with strict 60-minute hard timeout (60m) to prevent runaway loops
-  timeout 60m uv run python eval/run.py ../debim-ple-harness --tasks "$TASK" --env-file .env 2>&1 | tee "$TASK_LOG"
+  # Run Task with strict 90-minute hard timeout (90m) to prevent runaway loops
+  timeout 90m uv run python eval/run.py ../debim-ple-harness --tasks "$TASK" --env-file .env 2>&1 | tee "$TASK_LOG"
   TASK_EXIT_CODE=${PIPESTATUS[0]}
   
   if [ "$TASK_EXIT_CODE" -eq 124 ]; then
-    echo "⚠️ Task $TASK TIMED OUT (Reached 60-Minute Hard Limit)! Skipping to next task automatically."
+    echo "⚠️ Task $TASK TIMED OUT (Reached 90-Minute Hard Limit)! Skipping to next task automatically."
     FAILED_COUNT=$((FAILED_COUNT + 1))
   elif [ "$TASK_EXIT_CODE" -ne 0 ]; then
     echo "⚠️ Task $TASK finished with error code $TASK_EXIT_CODE"
