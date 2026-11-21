@@ -38,12 +38,16 @@ fi
 
 SHARD_TASKS_STR=$(curl -s -H "Metadata-Flavor: Google" "$METADATA_URL/instance/attributes/shard-tasks" 2>/dev/null)
 
-API_KEY=$(curl -s -H "Metadata-Flavor: Google" "$METADATA_URL/instance/attributes/gemini-api-key" 2>/dev/null)
-HF_TOKEN=$(curl -s -H "Metadata-Flavor: Google" "$METADATA_URL/instance/attributes/hf-token" 2>/dev/null)
+API_KEY=$(curl -s -f -H "Metadata-Flavor: Google" "$METADATA_URL/instance/attributes/gemini-api-key" 2>/dev/null || echo "")
+HF_TOKEN=$(curl -s -f -H "Metadata-Flavor: Google" "$METADATA_URL/instance/attributes/hf-token" 2>/dev/null || echo "")
 
-if [ -z "$API_KEY" ] || [[ "$API_KEY" == *"404"* ]]; then
+if [ -z "$API_KEY" ] || [[ "$API_KEY" == *"404"* ]] || [[ "$API_KEY" == *"<"* ]]; then
   echo "WARNING: gemini-api-key not found in metadata, using dummy fallback for Vertex AI"
   API_KEY="dummy-vertex-key"
+fi
+
+if [ -z "$HF_TOKEN" ] || [[ "$HF_TOKEN" == *"404"* ]] || [[ "$HF_TOKEN" == *"<"* ]]; then
+  HF_TOKEN=""
 fi
 
 WORKDIR="/opt/benchmark"

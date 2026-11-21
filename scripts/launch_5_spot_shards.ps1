@@ -65,7 +65,7 @@ foreach ($shard in $Shards) {
         --image-project=debian-cloud `
         --scopes=cloud-platform `
         --metadata-from-file=startup-script=$StartupScript `
-        --metadata="shard-id=$id,shard-tasks=$tasks,gcs-bucket=$Bucket,gemini-api-key=dummy-key"
+        --metadata="shard-id=$id,shard-tasks=$tasks,gcs-bucket=$Bucket,gemini-api-key=dummy-key,hf-token="
         
     Write-Host "✅ $name launched successfully in $zone!"
 }
