@@ -6,6 +6,11 @@
 $Project = "lab-ai-972593"
 $StartupScript = "scripts/gcp_shard_runner.sh"
 $Bucket = "gs://lab-ai-972593-ple-results/gemma4"
+Write-Host "Fetching authorized API tokens from ple-batch29-1121-1224 metadata..."
+$SourceMeta = (gcloud.cmd compute instances describe ple-batch29-1121-1224 --zone=us-central1-c --format='json' | ConvertFrom-Json).metadata.items
+$HFToken = ($SourceMeta | Where-Object { $_.key -eq 'hf-token' }).value
+$GeminiKey = ($SourceMeta | Where-Object { $_.key -eq 'gemini-api-key' }).value
+Write-Host "HF Token present: $([bool]$HFToken), Gemini Key present: $([bool]$GeminiKey)"
 
 $Shards = @(
     @{
@@ -65,7 +70,7 @@ foreach ($shard in $Shards) {
         --image-project=debian-cloud `
         --scopes=cloud-platform `
         --metadata-from-file=startup-script=$StartupScript `
-        --metadata="shard-id=$id,shard-tasks=$tasks,gcs-bucket=$Bucket,gemini-api-key=dummy-key,hf-token="
+        --metadata="shard-id=$id,shard-tasks=$tasks,gcs-bucket=$Bucket,gemini-api-key=$GeminiKey,hf-token=$HFToken"
         
     Write-Host "✅ $name launched successfully in $zone!"
 }
