@@ -4,7 +4,7 @@
 # ==============================================================================
 
 $Project = "lab-ai-972593"
-$StartupScript = "scripts/gcp_shard_runner.sh"
+$StartupScript = Join-Path $PSScriptRoot "gcp_shard_runner.sh"
 $Bucket = "gs://lab-ai-972593-ple-results/gemma4"
 Write-Host "Fetching authorized API tokens from ple-batch29-1121-1224 metadata..."
 $SourceMeta = (gcloud.cmd compute instances describe ple-batch29-1121-1224 --zone=us-central1-c --format='json' | ConvertFrom-Json).metadata.items
